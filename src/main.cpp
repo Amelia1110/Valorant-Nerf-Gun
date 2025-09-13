@@ -1,13 +1,22 @@
 #include <Arduino.h>
-#define LED D5
+#include <Wire.h>
+#define s1 D3
+
+int fwd, jump;
+
 
 void setup() {
-  pinMode(LED,OUTPUT);
+  Serial.begin(9600);
+  pinMode(A0, INPUT);
+  pinMode(s1, INPUT);
 }
 
 void loop() {
-  delay(1000);
-  digitalWrite(LED,HIGH);
-  delay(1000);
-  digitalWrite(LED,LOW);
+  fwd = analogRead(A0);
+  jump = digitalRead(s1);
+
+  Serial.print(fwd);
+  Serial.print(" || ");
+  Serial.println(jump); //jump == 0 when pressed
+  delay(10);
 }
