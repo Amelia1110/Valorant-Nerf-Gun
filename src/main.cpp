@@ -4,6 +4,8 @@
 #include <WiFiUdp.h>
 
 #define LED D5
+#define BUTTON_PIN_R D6
+#define BUTTON_PIN_LEFT_MOUSE D7
 
 // Wifi
 const char* ssid     = "HackTheNorth";
@@ -19,6 +21,8 @@ int16_t a_cX, a_cY, a_cZ, tmp, g_yX, g_yY, g_yZ;
 void setup()
 {
   pinMode(LED, OUTPUT);
+  pinMode(BUTTON_PIN_R, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
 
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -66,6 +70,13 @@ void loop()
   memcpy(buf + 12,  &gx, 4);
   memcpy(buf + 16,  &gy, 4);
   memcpy(buf + 20,  &gz, 4);
+
+  // Build a byte of button states (bitmask)
+  uint8_t buttons = 0;
+  if (digitalRead(BUTTON_PIN_R) == LOW) buttons |= 1 << 0; // bit 0 = 'R'
+  if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == LOW) buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
+
+  buf[24] = buttons;
 
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
