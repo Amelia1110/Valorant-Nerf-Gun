@@ -1,26 +1,22 @@
 #include <Arduino.h>
 #include <Wire.h>
-#define s1 D4
-#define s2 D3
+#define s1 D3
 
-const int en = 2, rw = 1, rs = 0, d4 = 4, d5 = 5, d6 = 6, d7 = 7, b1 = 3;
+int fwd, jump;
+
 
 void setup() {
+  Serial.begin(9600);
   pinMode(A0, INPUT);
-  digitalWrite(D4, LOW);
-  digitalWrite(D3, LOW);
+  pinMode(s1, INPUT);
 }
 
-int varX, varY;
-
 void loop() {
-  varX = analogRead(A0);
-  Serial.print(varX);
-  delay(10);
+  fwd = analogRead(A0);
+  jump = digitalRead(s1);
 
-  varY = analogRead(A0);
-  Serial.print(varY);
+  Serial.print(fwd);
+  Serial.print(" || ");
+  Serial.println(jump); //jump == 0 when pressed
   delay(10);
-
-  delay(100);
 }
