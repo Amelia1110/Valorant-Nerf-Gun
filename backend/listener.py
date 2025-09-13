@@ -15,11 +15,13 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
 sensitivity = 0.5  # tune gyro sensitivity to taste
+last_buttons = 0
+last_joystick = 0
 
 print("Listening for IMU data...")
 while True:
     data, addr = sock.recvfrom(1024)
-    if len(data) != 25:  # 6 floats * 4 bytes each
+    if len(data) != 29:
         continue
 
     # Gyro
@@ -61,4 +63,47 @@ while True:
             elif not now and before:
                 mouse.release(Button.left)
 
+        if bit == 2:  # jump tap
+            if now and not before:
+                keyboard.press('space')
+                keyboard.release('space')
+
     last_buttons = buttons
+
+
+    # Joystick
+    joystick, = struct.unpack('f', data[25:29])
+
+    walk_thresh = 0.2     # 0.2–0.5 = walk
+    run_thresh = 0.5      # 0.5–0.8 = run
+    crouch_thresh = 0.8   # 0.8+ = crouch / max speed (backwards example)
+
+    # release previously held keys first
+    if abs(last_joystick) > 0.1:  # if there was movement before
+        keyboard.release('w')
+        keyboard.release('s')
+        keyboard.release('shift')
+        keyboard.release('c')  # if crouch key
+
+    # forward (positive joystick)
+    if joystick > 0.1:
+        if joystick <= walk_thresh:
+            keyboard.press('w')
+            keyboard.press('shift')  # walk
+        elif joystick <= run_thresh:
+            keyboard.press('w')       # run
+        else:  
+            keyboard.press('w')       # maximum run / sprint (could map to crouch if backward)
+
+    # backward (negative joystick)
+    elif joystick < -0.1:
+        abs_j = abs(joystick)
+        if abs_j <= walk_thresh:
+            keyboard.press('s')
+            keyboard.press('shift')  # walk backwards
+        elif abs_j <= run_thresh:
+            keyboard.press('s')       # run backward
+        else:
+            keyboard.press('s')       # crouch/backpedal max
+
+    last_joystick = joystick
