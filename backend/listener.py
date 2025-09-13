@@ -23,11 +23,9 @@ while True:
     # Optional: print for debugging
     print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
 
-    # Convert gyro to mouse movement
-    dx = int(gx * sensitivity)
-    dy = int(-gy * sensitivity)  # invert Y if needed
+    # cnvert gyro to mouse movement
+    dx = int(-gz * sensitivity)
+    dy = int(gx * sensitivity)  
 
     if dx or dy:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
-
-    # Acceleration variables (ax, ay, az) are available here for future features

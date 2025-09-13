@@ -8,7 +8,7 @@
 // Wifi
 const char* ssid     = "HackTheNorth";
 const char* password = "HTN2025!";
-const char* PC_IP    = "Placeholder"; // TODO: IP of your PC running Python CHANGE THIS
+const char *PC_IP = "10.37.126.245"; // TODO: IP of your PC running Python CHANGE THIS
 const int   PC_PORT  = 5005;
 
 WiFiUDP udp;
@@ -26,7 +26,7 @@ void setup()
   Wire.write(0);    // set to zero
   Wire.endTransmission(true);
 
-  // Wi-Fi
+  // wifi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
