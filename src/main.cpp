@@ -9,8 +9,8 @@
 #define JUMP 4
 // Buttons
 #define BUTTON_PIN_R 14
-#define BUTTON_PIN_LEFT_MOUSE 13
-#define BUTTON_PIN_SWITCH 16 //D2
+#define BUTTON_PIN_LEFT_MOUSE 26
+#define BUTTON_PIN_SWITCH 19 
 
 // Wifi
 const char* ssid = "HackTheNorth";
@@ -31,7 +31,7 @@ void setup()
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
   pinMode(SIDE, INPUT);
-
+  
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B); // PWR_MGMT_1 register
@@ -53,6 +53,7 @@ void loop()
   Wire.write(0x3B); // starting with register 0x3B ACCEL_XOUT_H
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_addr, 14); // request a total of 14 registers
+
 
   a_cX = Wire.read() << 8 | Wire.read(); // 0x3B ACCEL_XOUT_H 0x3C ACCEL_XOUT_L
   a_cY = Wire.read() << 8 | Wire.read(); // 0x3D ACCEL_YOUT_H 0x3E ACCEL_YOUT_L
@@ -78,7 +79,7 @@ void loop()
     buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
   if (digitalRead(JUMP) == HIGH)
     buttons |= 1 << 2; // bit 2 = 'Space'
-  if (digitalRead(BUTTON_PIN_SWITCH) == LOW)
+  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
     buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down' 
 
   // joystick analog normalized -1.0 to +1.0
@@ -107,6 +108,5 @@ void loop()
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
-
   // delay(5);
 }

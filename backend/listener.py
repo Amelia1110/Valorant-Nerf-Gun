@@ -24,6 +24,7 @@ print("Listening for IMU data...")
 while True:
     data, addr = sock.recvfrom(1024)
     if len(data) != 33:
+        print("Unexpected packet size:", len(data))
         continue
 
     # Gyro
