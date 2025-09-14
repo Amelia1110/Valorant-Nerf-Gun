@@ -4,14 +4,13 @@
 #include <WiFiUdp.h>
 
 // Joystick
-#define FWD A0
-#define JUMP 3
-// LED debugging
-#define LED 5
+#define FWD 36 //ADC CH0
+#define SIDE 39 //ADC CH3
+#define JUMP 4
 // Buttons
-#define BUTTON_PIN_R 6
-#define BUTTON_PIN_LEFT_MOUSE 8
-#define BUTTON_PIN_SWITCH 0
+#define BUTTON_PIN_R 12
+#define BUTTON_PIN_LEFT_MOUSE 13
+#define BUTTON_PIN_SWITCH 2 //D2
 
 // Wifi
 const char* ssid     = "HackTheNorth";
@@ -26,11 +25,11 @@ int16_t a_cX, a_cY, a_cZ, tmp, g_yX, g_yY, g_yZ;
 
 void setup()
 {
-  pinMode(LED, OUTPUT);
   pinMode(BUTTON_PIN_R, INPUT_PULLUP);
   pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
+  pinMode(SIDE, INPUT);
 
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -101,8 +100,6 @@ void loop()
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
-
-  digitalWrite(LED, !digitalRead(LED));
 
   delay(10);
 }
