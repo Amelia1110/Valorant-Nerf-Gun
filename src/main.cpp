@@ -115,5 +115,6 @@ void loop()
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
-  // delay(5);
+  
+  delay(10);
 }

@@ -42,8 +42,8 @@ while True:
     print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
 
     # cnvert gyro to mouse movement
-    dx = int(-gz * sensitivity * dt)
-    dy = int(gx * sensitivity * dt)  
+    dx = int(-gz * sensitivity)
+    dy = int(gx * sensitivity)  
 
     if dx or dy:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
