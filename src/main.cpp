@@ -31,6 +31,8 @@ void setup()
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
   pinMode(SIDE, INPUT);
+  
+  Serial.begin(115200);
 
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
