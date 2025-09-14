@@ -16,12 +16,13 @@ sock.bind((UDP_IP, UDP_PORT))
 
 sensitivity = 0.8  # tune gyro sensitivity to taste
 last_buttons = 0
-last_joystick = 0
+last_joystickFwd = 0
+last_joystickSide = 0
 
 print("Listening for IMU data...")
 while True:
     data, addr = sock.recvfrom(1024)
-    if len(data) != 29:
+    if len(data) != 33:
         continue
 
     # Gyro
@@ -81,32 +82,38 @@ while True:
 
 
     # Joystick
-    joystick, = struct.unpack('f', data[25:29])
+    joystickFwd, joystickSide = struct.unpack('ff', data[25:33])
 
     walk_thresh = 0.2     # 0.2–0.5 = walk
     run_thresh = 0.5      # 0.5–0.8 = run
     crouch_thresh = 0.8   # 0.8+ = crouch / max speed (backwards example)
 
     # release previously held keys first
-    if abs(last_joystick) > 0.1:  # if there was movement before
+    if abs(last_joystickFwd) > 0.1:  # if there was movement before
         keyboard.release('w')
         keyboard.release('s')
         keyboard.release(Key.shift_l)
         keyboard.release('c')  # if crouch key
 
+    if abs(last_joystickSide) > 0.1:  # if there was movement before
+        keyboard.release('d')
+        keyboard.release('a')
+        keyboard.release(Key.shift_l)
+        keyboard.release('c')  # if crouch key
+
     # forward (positive joystick)
-    if joystick > 0.1:
-        if joystick <= walk_thresh:
+    if joystickFwd > 0.1:
+        if joystickFwd <= walk_thresh:
             keyboard.press('w')
             keyboard.press(Key.shift_l)  # walk
-        elif joystick <= run_thresh:
+        elif joystickFwd <= run_thresh:
             keyboard.press('w')       # run
         else:  
             keyboard.press('w')       # maximum run / sprint (could map to crouch if backward)
 
     # backward (negative joystick)
-    elif joystick < -0.1:
-        abs_j = abs(joystick)
+    elif joystickFwd < -0.1:
+        abs_j = abs(joystickFwd)
         if abs_j <= walk_thresh:
             keyboard.press('s')
             keyboard.press(Key.shift_l)  # walk backwards
@@ -115,4 +122,27 @@ while True:
         else:
             keyboard.press('s')       # crouch/backpedal max
 
-    last_joystick = joystick
+    last_joystickFwd = joystickFwd
+
+    # right (positive joystick)
+    if joystickSide > 0.1:
+        if joystickSide <= walk_thresh:
+            keyboard.press('d')
+            keyboard.press(Key.shift_l)  # walk right
+        elif joystickSide <= run_thresh:
+            keyboard.press('d')       # run right
+        else:  
+            keyboard.press('d')       # maximum run / sprint
+
+    # left (negative joystick)
+    elif joystickSide < -0.1:
+        abs_j = abs(joystickSide)
+        if abs_j <= walk_thresh:
+            keyboard.press('a')
+            keyboard.press(Key.shift_l)  # walk left
+        elif abs_j <= run_thresh:
+            keyboard.press('a')       # run left
+        else:
+            keyboard.press('a')       # crouch/backpedal max
+
+    last_joystickSide = joystickSide

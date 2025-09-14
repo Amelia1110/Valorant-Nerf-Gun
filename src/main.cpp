@@ -4,14 +4,13 @@
 #include <WiFiUdp.h>
 
 // Joystick
-#define FWD A0
-#define JUMP 3
-// LED debugging
-#define LED 5
+#define FWD 36 //ADC CH0
+#define SIDE 39 //ADC CH3
+#define JUMP 4
 // Buttons
-#define BUTTON_PIN_R 6
-#define BUTTON_PIN_LEFT_MOUSE 8
-#define BUTTON_PIN_SWITCH 0
+#define BUTTON_PIN_R 12
+#define BUTTON_PIN_LEFT_MOUSE 13
+#define BUTTON_PIN_SWITCH 2 //D2
 
 // Wifi
 const char* ssid     = "HackTheNorth";
@@ -26,11 +25,11 @@ int16_t a_cX, a_cY, a_cZ, tmp, g_yX, g_yY, g_yZ;
 
 void setup()
 {
-  pinMode(LED, OUTPUT);
   pinMode(BUTTON_PIN_R, INPUT_PULLUP);
   pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
+  pinMode(SIDE, INPUT);
 
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -83,12 +82,17 @@ void loop()
 
   // joystick analog normalized -1.0 to +1.0
   int raw = analogRead(FWD); // 0-1023
-  float joystick = (raw - 512.0f) / 512.0f;
-  if (joystick > 1) joystick = 1;
-  if (joystick < -1) joystick = -1;
+  float joystickFwd = (raw - 512.0f) / 512.0f;
+  if (joystickFwd > 1) joystickFwd = 1;
+  if (joystickFwd < -1) joystickFwd = -1;
+
+  int raw = analogRead(SIDE); // 0-1023
+  float joystickSide = (raw - 512.0f) / 512.0f;
+  if (joystickSide > 1) joystickSide = 1;
+  if (joystickSide < -1) joystickSide = -1;
 
   // pack into one buffer: 6 floats + 1 byte + 1 float = 24 +1 +4 = 29 bytes
-  uint8_t buf[29];
+  uint8_t buf[33];
   memcpy(buf,       &ax, 4);
   memcpy(buf + 4,   &ay, 4);
   memcpy(buf + 8,   &az, 4);
@@ -96,13 +100,12 @@ void loop()
   memcpy(buf + 16,  &gy, 4);
   memcpy(buf + 20,  &gz, 4);
   buf[24] = buttons;
-  memcpy(buf + 25, &joystick, 4);
+  memcpy(buf + 25, &joystickFwd, 4);
+  memcpy(buf + 29, &joystickSide, 4);
 
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
-
-  digitalWrite(LED, !digitalRead(LED));
 
   delay(10);
 }
