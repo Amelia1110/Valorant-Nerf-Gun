@@ -19,6 +19,10 @@ sock.bind((UDP_IP, UDP_PORT))
 sensitivity = 0.8  # tune gyro sensitivity to taste
 angle_threshold = 80.0
 
+alpha = 0.3
+smooth_dx = 0.0
+smooth_dy = 0.0
+
 last_buttons = 0
 last_joystickFwd = 0
 last_joystickSide = 0
@@ -34,11 +38,25 @@ while True:
     data, addr = sock.recvfrom(1024)
     if len(data) != 33:
         print("Unexpected packet size:", len(data))
+
     now = time.time()
     dt = now - last_time
+
+    # Prevent zero or huge dt values
     if dt <= 0:
         dt = 0.01
+    elif dt > 0.05:  # cap at 50 ms
+        dt = 0.05
+
+    if dt <= 0:
+        dt = 0.01
+    elif dt > 0.05:  # cap at 50 ms
+        dt = 0.05
+
     last_time = now
+
+    if dt > 0.05:
+        dt = 0.01
 
     if len(data) != 29:
         continue
@@ -75,11 +93,18 @@ while True:
         pass
 
     # cnvert gyro to mouse movement
-    dx = int(-gz * sensitivity * dt)
-    dy = int(gx * sensitivity * dt)  
+    dx = -gz * sensitivity * dt
+    dy = gx * sensitivity * dt  
 
-    if dx or dy:
-        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
+    smooth_dx = alpha * dx + (1 - alpha) * smooth_dx
+    smooth_dy = alpha * dy + (1 - alpha) * smooth_dy
+
+    if abs(smooth_dx) >= 1 or abs(smooth_dy) >= 1:
+    win32api.mouse_event(
+        win32con.MOUSEEVENTF_MOVE,
+        int(smooth_dx),
+        int(smooth_dy)
+    )
 
     # Buttons
     # last byte = buttons bitmask
