@@ -1,6 +1,7 @@
 import socket
 import struct
 import win32api
+import time
 import win32con
 from pynput.keyboard import Controller as KeyboardController, Key
 from pynput.mouse import Controller as MouseController, Button
@@ -19,7 +20,8 @@ sensitivity = 0.8  # tune gyro sensitivity to taste
 angle_threshold = 80.0
 
 last_buttons = 0
-last_joystick = 0
+last_joystickFwd = 0
+last_joystickSide = 0
 
 print("Listening for IMU data...")
 
@@ -46,8 +48,7 @@ while True:
     # gx/gy/gz are degrees per second, integrate gz to get degrees rotated around z
     delta_deg_z = gz * dt
     angle_z += delta_deg_z
-    
-    # Optional: print for debugging
+        # Optional: print for debugging
     print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
     print(f"gz: {gz:.2f} degree per second, dt: {dt:.4f}s, delta deg z: {delta_deg_z:.3f} degrees, angle z: {angle_z:.3f} degrees")
 
@@ -81,10 +82,6 @@ while True:
     # Buttons
     # last byte = buttons bitmask
     buttons = data[24]
-
-    # debug current raw mask (throttled by simple change detection)
-    if buttons != last_buttons:
-        print(f"Buttons mask: 0x{buttons:02X}")
 
     # bit 0 = 'R' (tap), bit 1 = left mouse (hold), bit 2 = space (tap)
     # check changes for bits 0,1,2
@@ -121,32 +118,38 @@ while True:
 
 
     # Joystick
-    joystick, = struct.unpack('f', data[25:29])
+    joystickFwd, joystickSide = struct.unpack('ff', data[25:33])
 
     walk_thresh = 0.2     # 0.2–0.5 = walk
     run_thresh = 0.5      # 0.5–0.8 = run
     crouch_thresh = 0.8   # 0.8+ = crouch / max speed (backwards example)
 
     # release previously held keys first
-    if abs(last_joystick) > 0.1:  # if there was movement before
+    if abs(last_joystickFwd) > 0.2:  # if there was movement before
         keyboard.release('w')
         keyboard.release('s')
         keyboard.release(Key.shift_l)
-        keyboard.release('c')  # if crouch key
+        # keyboard.release('c')  # if crouch key
+
+    if abs(last_joystickSide) > 0.2:  # if there was movement before
+        keyboard.release('d')
+        keyboard.release('a')
+        keyboard.release(Key.shift_l)
+        # keyboard.release('c')  # if crouch key
 
     # forward (positive joystick)
-    if joystick > 0.1:
-        if joystick <= walk_thresh:
+    if joystickFwd > 0.2:
+        if joystickFwd <= walk_thresh:
             keyboard.press('w')
             keyboard.press(Key.shift_l)  # walk
-        elif joystick <= run_thresh:
+        elif joystickFwd <= run_thresh:
             keyboard.press('w')       # run
         else:  
             keyboard.press('w')       # maximum run / sprint (could map to crouch if backward)
 
     # backward (negative joystick)
-    elif joystick < -0.1:
-        abs_j = abs(joystick)
+    elif joystickFwd < -0.2:
+        abs_j = abs(joystickFwd)
         if abs_j <= walk_thresh:
             keyboard.press('s')
             keyboard.press(Key.shift_l)  # walk backwards
@@ -155,4 +158,29 @@ while True:
         else:
             keyboard.press('s')       # crouch/backpedal max
 
-    last_joystick = joystick
+    last_joystickFwd = joystickFwd
+
+    # right (positive joystick)
+    if joystickSide > 0.2:
+        if joystickSide <= walk_thresh:
+            keyboard.press('d')
+            keyboard.press(Key.shift_l)  # walk right
+        elif joystickSide <= run_thresh:
+            keyboard.press('d')       # run right
+        else:  
+            keyboard.press('d')       # maximum run / sprint
+
+    # left (negative joystick)
+    elif joystickSide < -0.2:
+        abs_j = abs(joystickSide)
+        if abs_j <= walk_thresh:
+            keyboard.press('a')
+            keyboard.press(Key.shift_l)  # walk left
+        elif abs_j <= run_thresh:
+            keyboard.press('a')       # run left
+        else:
+            keyboard.press('a')       # crouch/backpedal max
+
+    last_joystickSide = joystickSide
+    
+    # time.sleep(0.005)  

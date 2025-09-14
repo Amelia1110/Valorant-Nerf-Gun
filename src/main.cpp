@@ -1,20 +1,20 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <WiFiUdp.h>
 
 // Joystick
-#define FWD A0
-#define JUMP D3
-// LED debugging
-#define LED D5
+#define FWD 39 //ADC CH0
+#define SIDE 36 //ADC CH3
+#define JUMP 4
 // Buttons
-#define BUTTON_PIN_R D6
-#define BUTTON_PIN_LEFT_MOUSE D8
-#define BUTTON_PIN_SWITCH D0
+#define BUTTON_PIN_R 14
+#define BUTTON_PIN_LEFT_MOUSE 13
+#define BUTTON_PIN_SWITCH 16 //D2
 
 // Wifi
-const char* ssid     = "HackTheNorth";
+const char* ssid = "HackTheNorth";
+
 const char* password = "HTN2025!";
 const char *PC_IP = "10.37.126.245"; // TODO: IP of your PC running Python CHANGE THIS
 const int   PC_PORT  = 5005;
@@ -26,11 +26,11 @@ int16_t a_cX, a_cY, a_cZ, tmp, g_yX, g_yY, g_yZ;
 
 void setup()
 {
-  pinMode(LED, OUTPUT);
   pinMode(BUTTON_PIN_R, INPUT_PULLUP);
   pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
+  pinMode(SIDE, INPUT);
 
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
@@ -52,7 +52,7 @@ void loop()
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B); // starting with register 0x3B ACCEL_XOUT_H
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14, true); // request a total of 14 registers
+  Wire.requestFrom(MPU_addr, 14); // request a total of 14 registers
 
   a_cX = Wire.read() << 8 | Wire.read(); // 0x3B ACCEL_XOUT_H 0x3C ACCEL_XOUT_L
   a_cY = Wire.read() << 8 | Wire.read(); // 0x3D ACCEL_YOUT_H 0x3E ACCEL_YOUT_L
@@ -71,23 +71,29 @@ void loop()
   float gz = g_yZ / 131.0f;
 
   // Build a byte of button states (bitmask)
+  // Up to 8 buttons
   uint8_t buttons = 0;
   if (digitalRead(BUTTON_PIN_R) == HIGH) buttons |= 1 << 0; // bit 0 = 'R'
   if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == HIGH)
     buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
   if (digitalRead(JUMP) == HIGH)
     buttons |= 1 << 2; // bit 2 = 'Space'
-  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
+  if (digitalRead(BUTTON_PIN_SWITCH) == LOW)
     buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down' 
 
   // joystick analog normalized -1.0 to +1.0
-  int raw = analogRead(FWD); // 0-1023
-  float joystick = (raw - 512.0f) / 512.0f;
-  if (joystick > 1) joystick = 1;
-  if (joystick < -1) joystick = -1;
+  int rawY = analogRead(FWD); // 0-1023
+  float joystickFwd = (rawY - 2048.0f) / 2048.0f;
+  if (joystickFwd > 1) joystickFwd = 1;
+  if (joystickFwd < -1) joystickFwd = -1;
+
+  int rawX = analogRead(SIDE); // 0-1023
+  float joystickSide = (rawX - 2048.0f) / 2048.0f;
+  if (joystickSide > 1) joystickSide = 1;
+  if (joystickSide < -1) joystickSide = -1;
 
   // pack into one buffer: 6 floats + 1 byte + 1 float = 24 +1 +4 = 29 bytes
-  uint8_t buf[29];
+  uint8_t buf[33];
   memcpy(buf,       &ax, 4);
   memcpy(buf + 4,   &ay, 4);
   memcpy(buf + 8,   &az, 4);
@@ -95,13 +101,12 @@ void loop()
   memcpy(buf + 16,  &gy, 4);
   memcpy(buf + 20,  &gz, 4);
   buf[24] = buttons;
-  memcpy(buf + 25, &joystick, 4);
+  memcpy(buf + 25, &joystickFwd, 4);
+  memcpy(buf + 29, &joystickSide, 4);
 
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
 
-  digitalWrite(LED, !digitalRead(LED));
-
-  delay(10);
+  // delay(5);
 }
