@@ -68,6 +68,11 @@ sss
                 keyboard.press('space')
                 keyboard.release('space')
 
+        if bit == 3: # mouse scroll down
+            if now and not before:
+                mouse.scroll(0, -1)
+                print("Scroll Down")
+
     last_buttons = buttons
 
 
