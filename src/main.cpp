@@ -4,16 +4,17 @@
 #include <WiFiUdp.h>
 
 // Joystick
-#define FWD 36 //ADC CH0
-#define SIDE 39 //ADC CH3
+#define FWD 39 //ADC CH0
+#define SIDE 36 //ADC CH3
 #define JUMP 4
 // Buttons
-#define BUTTON_PIN_R 12
+#define BUTTON_PIN_R 14
 #define BUTTON_PIN_LEFT_MOUSE 13
-#define BUTTON_PIN_SWITCH 2 //D2
+#define BUTTON_PIN_SWITCH 16 //D2
 
 // Wifi
-const char* ssid     = "HackTheNorth";
+const char* ssid = "HackTheNorth";
+
 const char* password = "HTN2025!";
 const char *PC_IP = "10.37.126.245"; // TODO: IP of your PC running Python CHANGE THIS
 const int   PC_PORT  = 5005;
@@ -77,17 +78,17 @@ void loop()
     buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
   if (digitalRead(JUMP) == HIGH)
     buttons |= 1 << 2; // bit 2 = 'Space'
-  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
+  if (digitalRead(BUTTON_PIN_SWITCH) == LOW)
     buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down' 
 
   // joystick analog normalized -1.0 to +1.0
-  int raw = analogRead(FWD); // 0-1023
-  float joystickFwd = (raw - 512.0f) / 512.0f;
+  int rawY = analogRead(FWD); // 0-1023
+  float joystickFwd = (rawY - 2048.0f) / 2048.0f;
   if (joystickFwd > 1) joystickFwd = 1;
   if (joystickFwd < -1) joystickFwd = -1;
 
-  int raw = analogRead(SIDE); // 0-1023
-  float joystickSide = (raw - 512.0f) / 512.0f;
+  int rawX = analogRead(SIDE); // 0-1023
+  float joystickSide = (rawX - 2048.0f) / 2048.0f;
   if (joystickSide > 1) joystickSide = 1;
   if (joystickSide < -1) joystickSide = -1;
 
@@ -107,5 +108,5 @@ void loop()
   udp.write(buf, sizeof(buf));
   udp.endPacket();
 
-  delay(10);
+  // delay(5);
 }
