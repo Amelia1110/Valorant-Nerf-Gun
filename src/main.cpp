@@ -1,17 +1,17 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <WiFiUdp.h>
 
 // Joystick
 #define FWD A0
-#define JUMP D3
+#define JUMP 3
 // LED debugging
-#define LED D5
+#define LED 5
 // Buttons
-#define BUTTON_PIN_R D6
-#define BUTTON_PIN_LEFT_MOUSE D8
-#define BUTTON_PIN_SWITCH D0
+#define BUTTON_PIN_R 6
+#define BUTTON_PIN_LEFT_MOUSE 8
+#define BUTTON_PIN_SWITCH 0
 
 // Wifi
 const char* ssid     = "HackTheNorth";
@@ -52,7 +52,7 @@ void loop()
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B); // starting with register 0x3B ACCEL_XOUT_H
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14, true); // request a total of 14 registers
+  Wire.requestFrom(MPU_addr, 14); // request a total of 14 registers
 
   a_cX = Wire.read() << 8 | Wire.read(); // 0x3B ACCEL_XOUT_H 0x3C ACCEL_XOUT_L
   a_cY = Wire.read() << 8 | Wire.read(); // 0x3D ACCEL_YOUT_H 0x3E ACCEL_YOUT_L
@@ -71,6 +71,7 @@ void loop()
   float gz = g_yZ / 131.0f;
 
   // Build a byte of button states (bitmask)
+  // Up to 8 buttons
   uint8_t buttons = 0;
   if (digitalRead(BUTTON_PIN_R) == HIGH) buttons |= 1 << 0; // bit 0 = 'R'
   if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == HIGH)
