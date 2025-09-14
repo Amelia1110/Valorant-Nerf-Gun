@@ -70,9 +70,11 @@ void loop()
   float gz = g_yZ / 131.0f;
 
   // Build a byte of button states (bitmask)
+  // Up to 8 buttons
   uint8_t buttons = 0;
   if (digitalRead(BUTTON_PIN_R) == LOW) buttons |= 1 << 0; // bit 0 = 'R'
   if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == LOW) buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
+  if (digitalRead(JUMP) == LOW) buttons |= 1 << 2; // bit 1 = 'Left Mouse Click'
 
   // joystick analog normalized -1.0 to +1.0
   int raw = analogRead(FWD); // 0-1023
