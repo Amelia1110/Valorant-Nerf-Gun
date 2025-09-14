@@ -5,6 +5,7 @@ import time
 import win32con
 from pynput.keyboard import Controller as KeyboardController, Key
 from pynput.mouse import Controller as MouseController, Button
+import time
 
 keyboard = KeyboardController()
 mouse = MouseController()
@@ -16,25 +17,64 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
 sensitivity = 0.8  # tune gyro sensitivity to taste
+angle_threshold = 80.0
+
 last_buttons = 0
 last_joystickFwd = 0
 last_joystickSide = 0
 
 print("Listening for IMU data...")
+
+# Integration status
+last_time = time.time()
+angle_z = 0.0
+origin_angle = 0.0
+
 while True:
     data, addr = sock.recvfrom(1024)
-    if len(data) != 33:
+    now = time.time()
+    dt = now - last_time
+    if dt <= 0:
+        dt = 0.01
+    last_time = now
+
+    if len(data) != 29:
         continue
 
     # Gyro
     # Unpack accel and gyro
     ax, ay, az, gx, gy, gz = struct.unpack('ffffff', data[:24])
-    
-    # print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
+
+    # gx/gy/gz are degrees per second, integrate gz to get degrees rotated around z
+    delta_deg_z = gz * dt
+    angle_z += delta_deg_z
+        # Optional: print for debugging
+    print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
+    print(f"gz: {gz:.2f} degree per second, dt: {dt:.4f}s, delta deg z: {delta_deg_z:.3f} degrees, angle z: {angle_z:.3f} degrees")
+
+    # alerts if it's rotated over 80 degrees
+    if abs(angle_z - origin_angle) >= angle_threshold:
+        # direction: +1 if rotated right (gz>0), -1 if left
+        direction = 1 if gz > 0 else -1
+
+        # speed: proportional to how fast you’re rotating
+        # scale factor: adjust sensitivity to taste
+        speed = int(direction * abs(gz) * sensitivity * 0.5)
+
+        # apply continuous mouse move
+        if speed != 0:
+            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, speed, 0)
+
+        # Debug
+        print(f"Rotating: {angle_z:.1f}°, gz={gz:.1f}, speed={speed}")
+
+    else:
+        # within threshold → stop moving
+        pass
 
     # cnvert gyro to mouse movement
-    dx = int(-gz * sensitivity)
-    dy = int(gx * sensitivity)  
+    dx = int(-gz * sensitivity * dt)
+    dy = int(gx * sensitivity * dt)  
 
     if dx or dy:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
