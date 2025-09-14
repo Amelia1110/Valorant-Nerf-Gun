@@ -10,7 +10,8 @@
 #define LED D5
 // Buttons
 #define BUTTON_PIN_R D6
-#define BUTTON_PIN_LEFT_MOUSE D7
+#define BUTTON_PIN_LEFT_MOUSE D8
+#define BUTTON_PIN_SWITCH D0
 
 // Wifi
 const char* ssid     = "HackTheNorth";
@@ -71,8 +72,13 @@ void loop()
 
   // Build a byte of button states (bitmask)
   uint8_t buttons = 0;
-  if (digitalRead(BUTTON_PIN_R) == LOW) buttons |= 1 << 0; // bit 0 = 'R'
-  if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == LOW) buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
+  if (digitalRead(BUTTON_PIN_R) == HIGH) buttons |= 1 << 0; // bit 0 = 'R'
+  if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == HIGH)
+    buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
+  if (digitalRead(JUMP) == HIGH)
+    buttons |= 1 << 2; // bit 2 = 'Space'
+  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
+    buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down' 
 
   // joystick analog normalized -1.0 to +1.0
   int raw = analogRead(FWD); // 0-1023

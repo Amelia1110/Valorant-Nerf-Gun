@@ -37,15 +37,18 @@ while True:
 
     if dx or dy:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
-sss
 
     # Buttons
     # last byte = buttons bitmask
     buttons = data[24]
 
-    # bit 0 = 'R' (tap), bit 1 = left mouse (hold)
-    # check changes
-    for bit in (0, 1):
+    # debug current raw mask (throttled by simple change detection)
+    if buttons != last_buttons:
+        print(f"Buttons mask: 0x{buttons:02X}")
+
+    # bit 0 = 'R' (tap), bit 1 = left mouse (hold), bit 2 = space (tap)
+    # check changes for bits 0,1,2
+    for bit in (0, 1, 2, 3):
         mask = 1 << bit
         now = bool(buttons & mask)
         before = bool(last_buttons & mask)
@@ -56,17 +59,23 @@ sss
                 print("R Pressed")
                 keyboard.release('r')
 
-        if bit == 1:  # left mouse – hold style
+        if bit == 1:  # left mouse hold
             if now and not before:
-                mouse.press(Button.left)
-                print("Left Mouse Pressed")
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                print("Left Mouse DOWN")
             elif not now and before:
-                mouse.release(Button.left)
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                print("Left Mouse UP")
 
         if bit == 2:  # jump tap
             if now and not before:
-                keyboard.press('space')
-                keyboard.release('space')
+                keyboard.press(Key.space)
+                keyboard.release(Key.space)
+                
+        if bit == 3: # mouse scroll down
+            if now and not before:
+                mouse.scroll(0, -1)
+                print("Scroll Down")
 
     last_buttons = buttons
 
