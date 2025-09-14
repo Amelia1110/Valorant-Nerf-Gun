@@ -24,8 +24,40 @@ WiFiUDP udp;
 const int MPU_addr = 0x68; // I2C address
 int16_t a_cX, a_cY, a_cZ, tmp, g_yX, g_yY, g_yZ;
 
-void setup()
-{
+// Global variables for gyro bias
+float gyroBiasX = 0, gyroBiasY = 0, gyroBiasZ = 0;
+const float gyroDeadzone = 0.2; // tune this experimentally
+
+void calibrateGyro(int samples = 500) {
+  long sumX = 0, sumY = 0, sumZ = 0;
+  for (int i = 0; i < samples; i++) {
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x43); // GYRO_XOUT_H
+    Wire.endTransmission(false);
+    Wire.requestFrom(MPU_addr, 6, true); // 3 axes * 2 bytes
+
+    int16_t gx = Wire.read() << 8 | Wire.read();
+    int16_t gy = Wire.read() << 8 | Wire.read();
+    int16_t gz = Wire.read() << 8 | Wire.read();
+
+    sumX += gx;
+    sumY += gy;
+    sumZ += gz;
+
+    delay(2); // short delay between readings
+  }
+
+  gyroBiasX = sumX / (float)samples;
+  gyroBiasY = sumY / (float)samples;
+  gyroBiasZ = sumZ / (float)samples;
+
+  Serial.println("Gyro calibrated:");
+  Serial.println(gyroBiasX);
+  Serial.println(gyroBiasY);
+  Serial.println(gyroBiasZ);
+}
+
+void setup() {
   pinMode(BUTTON_PIN_R, INPUT_PULLUP);
   pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
   pinMode(JUMP, INPUT_PULLUP);
@@ -40,67 +72,65 @@ void setup()
   Wire.write(0);    // set to zero
   Wire.endTransmission(true);
 
-  // wifi
+  // Calibrate gyro at startup
+  calibrateGyro();
+
+  // WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
   }
   udp.begin(PC_PORT);
 }
 
-void loop()
-{
+void loop() {
   Wire.beginTransmission(MPU_addr);
-  Wire.write(0x3B); // starting with register 0x3B ACCEL_XOUT_H
+  Wire.write(0x3B); // ACCEL_XOUT_H
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14, true); // request a total of 14 registers
+  Wire.requestFrom(MPU_addr, 14, true);
 
-  a_cX = Wire.read() << 8 | Wire.read(); // 0x3B ACCEL_XOUT_H 0x3C ACCEL_XOUT_L
-  a_cY = Wire.read() << 8 | Wire.read(); // 0x3D ACCEL_YOUT_H 0x3E ACCEL_YOUT_L
-  a_cZ = Wire.read() << 8 | Wire.read(); // 0x3F ACCEL_ZOUT_H 0x40 ACCEL_ZOUT_L
-  tmp = Wire.read() << 8 | Wire.read();  // 0x41 TEMP_OUT_H 0x42 TEMP_OUT_L
-  g_yX = Wire.read() << 8 | Wire.read(); // 0x43 GYRO_XOUT_H 0x44 GYRO_XOUT_L
-  g_yY = Wire.read() << 8 | Wire.read(); // 0x45 GYRO_YOUT_H 0x46 GYRO_YOUT_L
-  g_yZ = Wire.read() << 8 | Wire.read(); // 0x47 GYRO_ZOUT_H 0x48 GYRO_ZOUT_L
+  a_cX = Wire.read() << 8 | Wire.read();
+  a_cY = Wire.read() << 8 | Wire.read();
+  a_cZ = Wire.read() << 8 | Wire.read();
+  tmp = Wire.read() << 8 | Wire.read();
+  g_yX = Wire.read() << 8 | Wire.read();
+  g_yY = Wire.read() << 8 | Wire.read();
+  g_yZ = Wire.read() << 8 | Wire.read();
 
   float ax = a_cX / 16384.0f;
   float ay = a_cY / 16384.0f;
   float az = a_cZ / 16384.0f;
 
-  float gx = g_yX / 131.0f;
-  float gy = g_yY / 131.0f;
-  float gz = g_yZ / 131.0f;
+  // Subtract bias and apply deadzone
+  float gx = (g_yX - gyroBiasX) / 131.0f;
+  float gy = (g_yY - gyroBiasY) / 131.0f;
+  float gz = (g_yZ - gyroBiasZ) / 131.0f;
 
-  // Build a byte of button states (bitmask)
-  // Up to 8 buttons
+  if (abs(gx) < gyroDeadzone) gx = 0;
+  if (abs(gy) < gyroDeadzone) gy = 0;
+  if (abs(gz) < gyroDeadzone) gz = 0;
+
+  // Buttons
   uint8_t buttons = 0;
-  if (digitalRead(BUTTON_PIN_R) == HIGH)
-    buttons |= 1 << 0; // bit 0 = 'R'
-  if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == HIGH)
-    buttons |= 1 << 1; // bit 1 = 'Left Mouse Click'
-  if (digitalRead(JUMP) == HIGH)
-    buttons |= 1 << 2; // bit 2 = 'Space'
-  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
-    buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down'
+  if (digitalRead(BUTTON_PIN_R) == HIGH) buttons |= 1 << 0;
+  if (digitalRead(BUTTON_PIN_LEFT_MOUSE) == HIGH) buttons |= 1 << 1;
+  if (digitalRead(JUMP) == HIGH) buttons |= 1 << 2;
+  if (digitalRead(BUTTON_PIN_SWITCH) == HIGH) buttons |= 1 << 3;
 
-  // joystick analog normalized -1.0 to +1.0
-  int rawY = analogRead(FWD); // 0-1023
+  // Joystick normalization (ESP32 12-bit ADC)
+  int rawY = analogRead(FWD);
+  int rawX = analogRead(SIDE);
+
   float joystickFwd = (rawY - 2048.0f) / 2048.0f;
-  if (joystickFwd > 1)
-    joystickFwd = 1;
-  if (joystickFwd < -1)
-    joystickFwd = -1;
-
-  int rawX = analogRead(SIDE); // 0-1023
   float joystickSide = (rawX - 2048.0f) / 2048.0f;
-  if (joystickSide > 1)
-    joystickSide = 1;
-  if (joystickSide < -1)
-    joystickSide = -1;
 
-  // pack into one buffer: 6 floats + 1 byte + 1 float = 24 +1 +4 = 29 bytes
+  if (joystickFwd > 1) joystickFwd = 1;
+  if (joystickFwd < -1) joystickFwd = -1;
+  if (joystickSide > 1) joystickSide = 1;
+  if (joystickSide < -1) joystickSide = -1;
+
+  // Pack and send
   uint8_t buf[33];
   memcpy(buf, &ax, 4);
   memcpy(buf + 4, &ay, 4);
@@ -115,6 +145,6 @@ void loop()
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
   udp.endPacket();
-  
+
   delay(10);
 }
