@@ -88,6 +88,7 @@ while True:
 
     # Joystick
     joystickFwd, joystickSide = struct.unpack('ff', data[25:33])
+    joystickSide = -joystickSide
 
     walk_thresh = 0.2     # 0.2–0.5 = walk
     run_thresh = 0.5      # 0.5–0.8 = run
