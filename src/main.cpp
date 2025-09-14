@@ -19,6 +19,10 @@ const char* password = "HTN2025!";
 const char *PC_IP = "10.37.126.245"; // TODO: IP of your PC running Python CHANGE THIS
 const int   PC_PORT  = 5005;
 
+const int SAMPLES_PER_PACKET = 5;
+uint8_t packetBuf[33 * SAMPLES_PER_PACKET];
+int sampleIndex = 0;
+
 WiFiUDP udp;
 
 const int MPU_addr = 0x68; // I2C address
@@ -104,9 +108,14 @@ void loop()
   memcpy(buf + 25, &joystickFwd, 4);
   memcpy(buf + 29, &joystickSide, 4);
 
-  udp.beginPacket(PC_IP, PC_PORT);
-  udp.write(buf, sizeof(buf));
-  udp.endPacket();
+  memcpy(&packetBuf[sampleIndex * 33], buf, 33);
+  sampleIndex++;
+
+  if (sampleIndex >= SAMPLES_PER_PACKET) {
+    udp.beginPacket(PC_IP, PC_PORT);
+    udp.write(buf, sizeof(buf));
+    udp.endPacket();
+    sampleIndex = 0;
 
   // delay(5);
 }

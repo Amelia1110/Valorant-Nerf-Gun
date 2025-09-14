@@ -16,6 +16,9 @@ UDP_PORT = 5005
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
+SAMPLE_SIZE = 33  # 33 bytes per sample
+SAMPLES_PER_PACKET = 5
+
 sensitivity = 0.8  # tune gyro sensitivity to taste
 angle_threshold = 80.0
 
@@ -31,156 +34,161 @@ angle_z = 0.0
 origin_angle = 0.0
 
 while True:
-    data, addr = sock.recvfrom(1024)
+    data, addr = sock.recvfrom(4096)
     now = time.time()
     dt = now - last_time
     if dt <= 0:
         dt = 0.01
     last_time = now
 
-    if len(data) != 29:
+    if len(data) != SAMPLE_SIZE * SAMPLES_PER_PACKET:
+        print(f"Unexpected packet size: {len(data)}")
         continue
 
-    # Gyro
-    # Unpack accel and gyro
-    ax, ay, az, gx, gy, gz = struct.unpack('ffffff', data[:24])
+    for i in range(SAMPLES_PER_PACKET):
+        offset = i * SAMPLE_SIZE
+        sample = data[offset:offset + SAMPLE_SIZE]
 
-    # gx/gy/gz are degrees per second, integrate gz to get degrees rotated around z
-    delta_deg_z = gz * dt
-    angle_z += delta_deg_z
-        # Optional: print for debugging
-    print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
-    print(f"gz: {gz:.2f} degree per second, dt: {dt:.4f}s, delta deg z: {delta_deg_z:.3f} degrees, angle z: {angle_z:.3f} degrees")
+        # Gyro
+        # Unpack accel and gyro
+        ax, ay, az, gx, gy, gz = struct.unpack('ffffff', sample[:24])
 
-    # alerts if it's rotated over 80 degrees
-    if abs(angle_z - origin_angle) >= angle_threshold:
-        # direction: +1 if rotated right (gz>0), -1 if left
-        direction = 1 if gz > 0 else -1
+        # gx/gy/gz are degrees per second, integrate gz to get degrees rotated around z
+        delta_deg_z = gz * dt
+        angle_z += delta_deg_z
+            # Optional: print for debugging
+        print(f"Accel: ({ax:.2f}, {ay:.2f}, {az:.2f}) | Gyro: ({gx:.2f}, {gy:.2f}, {gz:.2f})")
+        print(f"gz: {gz:.2f} degree per second, dt: {dt:.4f}s, delta deg z: {delta_deg_z:.3f} degrees, angle z: {angle_z:.3f} degrees")
 
-        # speed: proportional to how fast you’re rotating
-        # scale factor: adjust sensitivity to taste
-        speed = int(direction * abs(gz) * sensitivity * 0.5)
+        # alerts if it's rotated over 80 degrees
+        if abs(angle_z - origin_angle) >= angle_threshold:
+            # direction: +1 if rotated right (gz>0), -1 if left
+            direction = 1 if gz > 0 else -1
 
-        # apply continuous mouse move
-        if speed != 0:
-            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, speed, 0)
+            # speed: proportional to how fast you’re rotating
+            # scale factor: adjust sensitivity to taste
+            speed = int(direction * abs(gz) * sensitivity * 0.5)
 
-        # Debug
-        print(f"Rotating: {angle_z:.1f}°, gz={gz:.1f}, speed={speed}")
+            # apply continuous mouse move
+            if speed != 0:
+                win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, speed, 0)
 
-    else:
-        # within threshold → stop moving
-        pass
+            # Debug
+            print(f"Rotating: {angle_z:.1f}°, gz={gz:.1f}, speed={speed}")
 
-    # cnvert gyro to mouse movement
-    dx = int(-gz * sensitivity * dt)
-    dy = int(gx * sensitivity * dt)  
-
-    if dx or dy:
-        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
-
-    # Buttons
-    # last byte = buttons bitmask
-    buttons = data[24]
-
-    # bit 0 = 'R' (tap), bit 1 = left mouse (hold), bit 2 = space (tap)
-    # check changes for bits 0,1,2
-    for bit in (0, 1, 2, 3):
-        mask = 1 << bit
-        now = bool(buttons & mask)
-        before = bool(last_buttons & mask)
-
-        if bit == 0:  # 'R' key – fire on rising edge only
-            if now and not before:
-                keyboard.press('r')
-                print("R Pressed")
-                keyboard.release('r')
-
-        if bit == 1:  # left mouse hold
-            if now and not before:
-                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-                print("Left Mouse DOWN")
-            elif not now and before:
-                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-                print("Left Mouse UP")
-
-        if bit == 2:  # jump tap
-            if now and not before:
-                keyboard.press(Key.space)
-                keyboard.release(Key.space)
-                
-        if bit == 3: # mouse scroll down
-            if now and not before:
-                mouse.scroll(0, -1)
-                print("Scroll Down")
-
-    last_buttons = buttons
-
-
-    # Joystick
-    joystickFwd, joystickSide = struct.unpack('ff', data[25:33])
-
-    walk_thresh = 0.2     # 0.2–0.5 = walk
-    run_thresh = 0.5      # 0.5–0.8 = run
-    crouch_thresh = 0.8   # 0.8+ = crouch / max speed (backwards example)
-
-    # release previously held keys first
-    if abs(last_joystickFwd) > 0.2:  # if there was movement before
-        keyboard.release('w')
-        keyboard.release('s')
-        keyboard.release(Key.shift_l)
-        # keyboard.release('c')  # if crouch key
-
-    if abs(last_joystickSide) > 0.2:  # if there was movement before
-        keyboard.release('d')
-        keyboard.release('a')
-        keyboard.release(Key.shift_l)
-        # keyboard.release('c')  # if crouch key
-
-    # forward (positive joystick)
-    if joystickFwd > 0.2:
-        if joystickFwd <= walk_thresh:
-            keyboard.press('w')
-            keyboard.press(Key.shift_l)  # walk
-        elif joystickFwd <= run_thresh:
-            keyboard.press('w')       # run
-        else:  
-            keyboard.press('w')       # maximum run / sprint (could map to crouch if backward)
-
-    # backward (negative joystick)
-    elif joystickFwd < -0.2:
-        abs_j = abs(joystickFwd)
-        if abs_j <= walk_thresh:
-            keyboard.press('s')
-            keyboard.press(Key.shift_l)  # walk backwards
-        elif abs_j <= run_thresh:
-            keyboard.press('s')       # run backward
         else:
-            keyboard.press('s')       # crouch/backpedal max
+            # within threshold → stop moving
+            pass
 
-    last_joystickFwd = joystickFwd
+        # cnvert gyro to mouse movement
+        dx = int(-gz * sensitivity * dt)
+        dy = int(gx * sensitivity * dt)  
 
-    # right (positive joystick)
-    if joystickSide > 0.2:
-        if joystickSide <= walk_thresh:
-            keyboard.press('d')
-            keyboard.press(Key.shift_l)  # walk right
-        elif joystickSide <= run_thresh:
-            keyboard.press('d')       # run right
-        else:  
-            keyboard.press('d')       # maximum run / sprint
+        if dx or dy:
+            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
 
-    # left (negative joystick)
-    elif joystickSide < -0.2:
-        abs_j = abs(joystickSide)
-        if abs_j <= walk_thresh:
-            keyboard.press('a')
-            keyboard.press(Key.shift_l)  # walk left
-        elif abs_j <= run_thresh:
-            keyboard.press('a')       # run left
-        else:
-            keyboard.press('a')       # crouch/backpedal max
+        # Buttons
+        # last byte = buttons bitmask
+        buttons = sample[24]
 
-    last_joystickSide = joystickSide
-    
-    # time.sleep(0.005)  
+        # bit 0 = 'R' (tap), bit 1 = left mouse (hold), bit 2 = space (tap)
+        # check changes for bits 0,1,2
+        for bit in (0, 1, 2, 3):
+            mask = 1 << bit
+            now = bool(buttons & mask)
+            before = bool(last_buttons & mask)
+
+            if bit == 0:  # 'R' key – fire on rising edge only
+                if now and not before:
+                    keyboard.press('r')
+                    print("R Pressed")
+                    keyboard.release('r')
+
+            if bit == 1:  # left mouse hold
+                if now and not before:
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    print("Left Mouse DOWN")
+                elif not now and before:
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                    print("Left Mouse UP")
+
+            if bit == 2:  # jump tap
+                if now and not before:
+                    keyboard.press(Key.space)
+                    keyboard.release(Key.space)
+                    
+            if bit == 3: # mouse scroll down
+                if now and not before:
+                    mouse.scroll(0, -1)
+                    print("Scroll Down")
+
+        last_buttons = buttons
+
+
+        # Joystick
+        joystickFwd, joystickSide = struct.unpack('ff', sample[25:33])
+
+        walk_thresh = 0.2     # 0.2–0.5 = walk
+        run_thresh = 0.5      # 0.5–0.8 = run
+        crouch_thresh = 0.8   # 0.8+ = crouch / max speed (backwards example)
+
+        # release previously held keys first
+        if abs(last_joystickFwd) > 0.2:  # if there was movement before
+            keyboard.release('w')
+            keyboard.release('s')
+            keyboard.release(Key.shift_l)
+            # keyboard.release('c')  # if crouch key
+
+        if abs(last_joystickSide) > 0.2:  # if there was movement before
+            keyboard.release('d')
+            keyboard.release('a')
+            keyboard.release(Key.shift_l)
+            # keyboard.release('c')  # if crouch key
+
+        # forward (positive joystick)
+        if joystickFwd > 0.2:
+            if joystickFwd <= walk_thresh:
+                keyboard.press('w')
+                keyboard.press(Key.shift_l)  # walk
+            elif joystickFwd <= run_thresh:
+                keyboard.press('w')       # run
+            else:  
+                keyboard.press('w')       # maximum run / sprint (could map to crouch if backward)
+
+        # backward (negative joystick)
+        elif joystickFwd < -0.2:
+            abs_j = abs(joystickFwd)
+            if abs_j <= walk_thresh:
+                keyboard.press('s')
+                keyboard.press(Key.shift_l)  # walk backwards
+            elif abs_j <= run_thresh:
+                keyboard.press('s')       # run backward
+            else:
+                keyboard.press('s')       # crouch/backpedal max
+
+        last_joystickFwd = joystickFwd
+
+        # right (positive joystick)
+        if joystickSide > 0.2:
+            if joystickSide <= walk_thresh:
+                keyboard.press('d')
+                keyboard.press(Key.shift_l)  # walk right
+            elif joystickSide <= run_thresh:
+                keyboard.press('d')       # run right
+            else:  
+                keyboard.press('d')       # maximum run / sprint
+
+        # left (negative joystick)
+        elif joystickSide < -0.2:
+            abs_j = abs(joystickSide)
+            if abs_j <= walk_thresh:
+                keyboard.press('a')
+                keyboard.press(Key.shift_l)  # walk left
+            elif abs_j <= run_thresh:
+                keyboard.press('a')       # run left
+            else:
+                keyboard.press('a')       # crouch/backpedal max
+
+        last_joystickSide = joystickSide
+        
+        # time.sleep(0.005)  
