@@ -2,7 +2,7 @@ import socket
 import struct
 import win32api
 import win32con
-from pynput.keyboard import Controller as KeyboardController
+from pynput.keyboard import Controller as KeyboardController, Key
 from pynput.mouse import Controller as MouseController, Button
 
 keyboard = KeyboardController()
@@ -14,7 +14,7 @@ UDP_PORT = 5005
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
-sensitivity = 0.5  # tune gyro sensitivity to taste
+sensitivity = 0.8  # tune gyro sensitivity to taste
 last_buttons = 0
 last_joystick = 0
 
@@ -37,7 +37,7 @@ while True:
 
     if dx or dy:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, dx, dy)
-
+sss
 
     # Buttons
     # last byte = buttons bitmask
@@ -82,14 +82,14 @@ while True:
     if abs(last_joystick) > 0.1:  # if there was movement before
         keyboard.release('w')
         keyboard.release('s')
-        keyboard.release('shift')
+        keyboard.release(Key.shift_l)
         keyboard.release('c')  # if crouch key
 
     # forward (positive joystick)
     if joystick > 0.1:
         if joystick <= walk_thresh:
             keyboard.press('w')
-            keyboard.press('shift')  # walk
+            keyboard.press(Key.shift_l)  # walk
         elif joystick <= run_thresh:
             keyboard.press('w')       # run
         else:  
@@ -100,7 +100,7 @@ while True:
         abs_j = abs(joystick)
         if abs_j <= walk_thresh:
             keyboard.press('s')
-            keyboard.press('shift')  # walk backwards
+            keyboard.press(Key.shift_l)  # walk backwards
         elif abs_j <= run_thresh:
             keyboard.press('s')       # run backward
         else:
