@@ -9,7 +9,7 @@
 #define JUMP 4
 // Buttons
 #define BUTTON_PIN_R 14
-#define BUTTON_PIN_LEFT_MOUSE 26
+#define BUTTON_PIN_LEFT_MOUSE 33
 #define BUTTON_PIN_SWITCH 19
 
 // Wifi
@@ -55,7 +55,7 @@ void loop()
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B); // starting with register 0x3B ACCEL_XOUT_H
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14); // request a total of 14 registers
+  Wire.requestFrom(MPU_addr, 14, true); // request a total of 14 registers
 
   a_cX = Wire.read() << 8 | Wire.read(); // 0x3B ACCEL_XOUT_H 0x3C ACCEL_XOUT_L
   a_cY = Wire.read() << 8 | Wire.read(); // 0x3D ACCEL_YOUT_H 0x3E ACCEL_YOUT_L
