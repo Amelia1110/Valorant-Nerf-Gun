@@ -82,12 +82,17 @@ void loop()
 
   // joystick analog normalized -1.0 to +1.0
   int raw = analogRead(FWD); // 0-1023
-  float joystick = (raw - 512.0f) / 512.0f;
-  if (joystick > 1) joystick = 1;
-  if (joystick < -1) joystick = -1;
+  float joystickFwd = (raw - 512.0f) / 512.0f;
+  if (joystickFwd > 1) joystickFwd = 1;
+  if (joystickFwd < -1) joystickFwd = -1;
+
+  int raw = analogRead(SIDE); // 0-1023
+  float joystickSide = (raw - 512.0f) / 512.0f;
+  if (joystickSide > 1) joystickSide = 1;
+  if (joystickSide < -1) joystickSide = -1;
 
   // pack into one buffer: 6 floats + 1 byte + 1 float = 24 +1 +4 = 29 bytes
-  uint8_t buf[29];
+  uint8_t buf[33];
   memcpy(buf,       &ax, 4);
   memcpy(buf + 4,   &ay, 4);
   memcpy(buf + 8,   &az, 4);
@@ -95,7 +100,8 @@ void loop()
   memcpy(buf + 16,  &gy, 4);
   memcpy(buf + 20,  &gz, 4);
   buf[24] = buttons;
-  memcpy(buf + 25, &joystick, 4);
+  memcpy(buf + 25, &joystickFwd, 4);
+  memcpy(buf + 29, &joystickSide, 4);
 
   udp.beginPacket(PC_IP, PC_PORT);
   udp.write(buf, sizeof(buf));
