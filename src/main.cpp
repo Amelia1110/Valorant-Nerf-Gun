@@ -10,6 +10,7 @@
 // Buttons
 #define BUTTON_PIN_R 12
 #define BUTTON_PIN_LEFT_MOUSE 13
+#define BUTTON_PIN_RIGHT_MOUSE 14
 #define BUTTON_PIN_SWITCH 2 //D2
 
 // Wifi
@@ -27,6 +28,7 @@ void setup()
 {
   pinMode(BUTTON_PIN_R, INPUT_PULLUP);
   pinMode(BUTTON_PIN_LEFT_MOUSE, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_RIGHT_MOUSE, INPUT_PULLUP);
   pinMode(JUMP, INPUT_PULLUP);
   pinMode(FWD, INPUT);
   pinMode(SIDE, INPUT);
@@ -79,6 +81,8 @@ void loop()
     buttons |= 1 << 2; // bit 2 = 'Space'
   if (digitalRead(BUTTON_PIN_SWITCH) == HIGH)
     buttons |= 1 << 3; // bit 3 = 'Mouse Scroll Down' 
+  if (digitalRead(BUTTON_PIN_RIGHT_MOUSE) == HIGH)
+    buttons |= 1 << 4; // bit 4 = 'Left Mouse Click'
 
   // joystick analog normalized -1.0 to +1.0
   int raw = analogRead(FWD); // 0-1023

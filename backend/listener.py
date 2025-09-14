@@ -78,6 +78,12 @@ while True:
                 mouse.scroll(0, -1)
                 print("Scroll Down")
 
+        if bit == 4:  # right mouse hold
+            if now and not before:
+                win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+                win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+                print("Left Mouse Click")
+
     last_buttons = buttons
 
 
